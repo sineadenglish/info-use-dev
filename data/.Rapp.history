@@ -1,0 +1,3516 @@
+library(fields)#
+library(plyr)#
+#
+source("/Users/sinead/Documents/work/modelling/2013-04-PAR/R/visualise_sims.r")#
+source("/Users/sinead/Documents/work/modelling/2013-04-PAR/R/summary_funcs.r")#
+# FUNCTIONS#
+#
+# need to make new function to return NA if iqr na#
+iqr1 = function(x)#
+{#
+	y = try(quantile(x)[2])#
+	return(ifelse(class(y)=="try-error",NA,y))#
+}#
+iqr2 = function(x)#
+{#
+	y = try(quantile(x)[4])#
+	return(ifelse(class(y)=="try-error",NA,y))#
+}#
+#
+# find fitness at maturity in good environment#
+RV_mat = function(size, env, parno)#
+{#
+	phi = pars[[parno]][1]#
+	const = c(pars[[parno]][4],pars[[parno]][5])#
+	kappa = c(pars[[parno]][2],pars[[parno]][3])#
+	return (1/(const[env+1] + exp((-1.0*phi)*(size -kappa[env+1]))));      #
+}    #
+setwd("/Users/sinead/Documents/work/modelling/2013-04-PAR/PAR_growth2/sizedep_pred/output_140703/")
+read in data#
+pars = list()#
+fitList = list()#
+optactList = list()#
+infoList = list()#
+#
+for(parno in 1:3) {#
+	pars[[parno]] <- as.numeric(read.table(file=paste("Params",parno,".txt",sep="")))#
+	fitList[[parno]] <- read.table(paste("FitnessValue",parno,".txt",sep=""))#
+	optactList[[parno]] <- read.table(paste("Decision",parno,".txt",sep="")); #
+	infoList[[parno]] <- read.table(paste("InfoVal",parno,".txt",sep=""))#
+	}
+for(res in c("pop","ind"))#
+{#
+	for(mort in c(0,1))#
+	{#
+		# baseline simulations & manipulate priors#
+		pfood = "0.0"#
+		age = 0#
+		for(prior in c(0.5,0.1,0.9)) #
+		{#
+			for (parno in checkpars) #
+			{#
+				assign(paste("simdat","pop",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputAll",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+				assign(paste("simdat","ind",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputInd",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+			}#
+		}#
+		# manipulate experiences at stages of development#
+		prior = 0.5#
+		for(parno in checkpars)#
+		{#
+			for(pfood in c(0.1,0.9))#
+			{#
+				for(age in seq(0,50,10)) #
+				{#
+					assign(paste("simdat","pop",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputAll",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+					assign(paste("simdat","ind",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputInd",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+				}#
+			}#
+		}#
+	}#
+}
+checkpars=2:3
+for(res in c("pop","ind"))#
+{#
+	for(mort in c(0,1))#
+	{#
+		# baseline simulations & manipulate priors#
+		pfood = "0.0"#
+		age = 0#
+		for(prior in c(0.5,0.1,0.9)) #
+		{#
+			for (parno in checkpars) #
+			{#
+				assign(paste("simdat","pop",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputAll",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+				assign(paste("simdat","ind",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputInd",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+			}#
+		}#
+		# manipulate experiences at stages of development#
+		prior = 0.5#
+		for(parno in checkpars)#
+		{#
+			for(pfood in c(0.1,0.9))#
+			{#
+				for(age in seq(0,50,10)) #
+				{#
+					assign(paste("simdat","pop",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputAll",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+					assign(paste("simdat","ind",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputInd",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+				}#
+			}#
+		}#
+	}#
+}
+plot(0,1,col="grey80")
+abline(h=0.25,col="grey20")
+abline(h=0.6,col="grey20")
+abline(h=0.8,col="grey50")
+abline(h=0.9,col="grey65")
+abline(h=0.9,col="grey70")
+plot.col=c("grey50","grey75","grey25")
+Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+# for supp material - size and surv#
+tiff(filename="FigS6.ExperiencesSizeSurv.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.size#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	plot2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot2dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot1dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Size at maturity",side=2,outer=T,adj=0.85)#
+mtext("Survival",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+baseline_simno = meandat$simno[meandat$prior==0.5 & meandat$pfood==0.0 & meandat$age==0]
+EFFECTS OF PRIOR AND EXPERIENCES ON FITNESS#
+#
+allfit <- c()#
+#
+# population means: #
+res = "pop"#
+mort = 1#
+#
+# baseline simulations & manipulate priors#
+pfood = "0.0" # numeric not factor#
+age = 0#
+#
+for(prior in c(0.1,0.5,0.9)) #
+{#
+	for (parno in checkpars) #
+	{#
+		thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+		thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+		thisdat$fit[thisdat$state==0] <- 0#
+		n<-length(thisdat$fit[thisdat$env==0])#
+		allfit_i <- c(parno,prior,0,age,#
+			mean(thisdat$fit[thisdat$env==0]),#
+			mean(thisdat$fit[thisdat$env==1]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+			sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+			sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			n)#
+		allfit <- rbind(allfit, allfit_i)#
+	}#
+}#
+#
+# manipulate experiences at stages of development#
+prior = 0.5#
+for(parno in checkpars)#
+{#
+	for(pfood in c(0.1,0.9))#
+	{#
+		for(age in seq(0,50,10)) #
+		{#
+			thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+#
+			thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+			thisdat$fit[thisdat$state==0] <- 0#
+			n<-length(thisdat$fit[thisdat$env==0])#
+			allfit_i <- c(parno,prior, pfood,age,#
+				mean(thisdat$fit[thisdat$env==0]),#
+				mean(thisdat$fit[thisdat$env==1]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+				sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+				sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				n)#
+			allfit <- rbind(allfit, allfit_i)#
+		}#
+	}#
+}#
+allfit = data.frame(allfit)#
+#
+colnames(allfit) = c("parno","prior","pfood","age","fit1","fit2","surv1","surv2","size1","size2","age1","age2","sdfit1","sdfit2","sdsize1","sdsize2","sdage1","sdage2","n")#
+#
+allfit$propsurv1 = allfit$surv1/allfit$n#
+allfit$propsurv2 = allfit$surv2/allfit$n#
+# add unique id for each simulation type#
+allfit$simtype = paste(allfit$parno, allfit$prior, allfit$pfood, allfit$age, sep="-")#
+allfit$simno = as.numeric(as.factor(allfit$simtype))#
+#
+meandat <- allfit  # because of old code#
+#
+ylim.fit <- c(0,0.25)#
+ylim.surv <- c(0,0.25)#
+ylim.size <- c(25,55)#
+ylim.age <- c(65,115)#
+#
+# get baselines sims: #
+#
+baseline_simno = meandat$simno[meandat$prior==0.5 & meandat$pfood==0.0 & meandat$age==0]#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")
+plot.col=c("grey50","grey75","grey25")
+Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+use.adj=0.2
+Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+use.adj=-0.2
+Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+EFFECTS OF PRIOR AND EXPERIENCES ON FITNESS#
+#
+allfit <- c()#
+#
+# population means: #
+res = "pop"#
+mort = 1#
+#
+# baseline simulations & manipulate priors#
+pfood = "0.0" # numeric not factor#
+age = 0#
+#
+for(prior in c(0.1,0.5,0.9)) #
+{#
+	for (parno in checkpars) #
+	{#
+		thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+		thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+		thisdat$fit[thisdat$state==0] <- 0#
+		n<-length(thisdat$fit[thisdat$env==0])#
+		allfit_i <- c(parno,prior,0,age,#
+			mean(thisdat$fit[thisdat$env==0]),#
+			mean(thisdat$fit[thisdat$env==1]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+			sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+			sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			n)#
+		allfit <- rbind(allfit, allfit_i)#
+	}#
+}#
+#
+# manipulate experiences at stages of development#
+prior = 0.5#
+for(parno in checkpars)#
+{#
+	for(pfood in c(0.1,0.9))#
+	{#
+		for(age in seq(0,50,10)) #
+		{#
+			thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+#
+			thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+			thisdat$fit[thisdat$state==0] <- 0#
+			n<-length(thisdat$fit[thisdat$env==0])#
+			allfit_i <- c(parno,prior, pfood,age,#
+				mean(thisdat$fit[thisdat$env==0]),#
+				mean(thisdat$fit[thisdat$env==1]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+				sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+				sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				n)#
+			allfit <- rbind(allfit, allfit_i)#
+		}#
+	}#
+}#
+allfit = data.frame(allfit)#
+#
+colnames(allfit) = c("parno","prior","pfood","age","fit1","fit2","surv1","surv2","size1","size2","age1","age2","sdfit1","sdfit2","sdsize1","sdsize2","sdage1","sdage2","n")#
+#
+allfit$propsurv1 = allfit$surv1/allfit$n#
+allfit$propsurv2 = allfit$surv2/allfit$n#
+# add unique id for each simulation type#
+allfit$simtype = paste(allfit$parno, allfit$prior, allfit$pfood, allfit$age, sep="-")#
+allfit$simno = as.numeric(as.factor(allfit$simtype))#
+#
+meandat <- allfit  # because of old code#
+#
+ylim.fit <- c(0,0.25)#
+ylim.surv <- c(0,0.25)#
+ylim.size <- c(25,55)#
+ylim.age <- c(65,115)#
+#
+# get baselines sims: #
+#
+baseline_simno = meandat$simno[meandat$prior==0.5 & meandat$pfood==0.0 & meandat$age==0]#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")#
+#
+# PLOT ALL
+PLOT AGE AND SIZE AT MAT and SURV AND FITNESS separately#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")#
+tiff(filename="Fig5.MatPriorsAgeSizeMat.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	use.adj = -0.25#
+	y.lim=ylim.age#
+	counter=counter+1#
+	bpage2 <- barplot(age2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	arrows(bpage2, age2dat[1,]+ age2dat[2,]-y.lim[1], bpage2, age2dat[1,]-age2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpage1 <- barplot(age1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpage1, age1dat[1,]+ age1dat[2,]-y.lim[1], bpage1, age1dat[1,]-age1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	use.adj = -0.25#
+	y.lim=ylim.size#
+#
+	counter=counter+1	#
+	bpsize2 <- barplot(size2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize2, size2dat[1,]+ size2dat[2,]-y.lim[1], bpsize2, size2dat[1,]-size2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpsize1 <- barplot(size1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize1, size1dat[1,]+ size1dat[2,]-y.lim[1], bpsize1, size1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Size at maturity",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+for supp material - surv and fitness#
+tiff(filename="FigS5.MatPriorsSurvFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$propsurv1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$propsurv2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.surv#
+	counter=counter+1#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	y.lim=ylim.fit#
+#
+	counter=counter+1	#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	arrows(bpplot2, plot2dat[1,]+ plot2dat[2,]-y.lim[1], bpplot2, plot2dat[1,]-plot2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	arrows(bpplot1, plot1dat[1,]+ size1dat[2,]-y.lim[1], bpplot1, plot1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Survival",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+plot.col=c("grey50","grey75","grey25")
+Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+for supp material - size and surv#
+tiff(filename="FigS6.ExperiencesSizeSurv.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.size#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	plot2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot2dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot1dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Size at maturity",side=2,outer=T,adj=0.85)#
+mtext("Survival",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+plot.col=c("grey50","grey75","grey25")#
+# Plot poor/rich conditions = PLOT ALL#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	fit1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	fit2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	surv1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	surv2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	use.adj = -0.2#
+	tiff(filename=paste("Fig7.Conditions",parno,".tiff",sep=""), width=850, height=450)#
+	par(mfrow=c(2,4),mai=c(0.7,0.7,0.2,0.3))#
+	## LOW-RESOURCE ENVIRONMENT#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age2dat[1,1]+ age2dat[2,1]-y.lim[1],1, age2dat[1,1]-age2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, age2dat[1,2:7]+ age2dat[2,2:7]-y.lim[1],2:7, age2dat[1,2:7]-age2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, age2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, age2dat[1,8:13]+ age2dat[2,8:13]-y.lim[1],(2:7)+0.1, age2dat[1,8:13]-age2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(a)",side=3, line=0, adj=use.adj,cex=1)#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size2dat[1,1]+ size2dat[2,1]-y.lim[1],1, size2dat[1,1]-size2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+	# poor conditions#
+	points(2:7,size2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, size2dat[1,2:7]+ size2dat[2,2:7]-y.lim[1],2:7, size2dat[1,2:7]-size2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,size2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, size2dat[1,8:13]+ size2dat[2,8:13]-y.lim[1],(2:7)+0.1, size2dat[1,8:13]-size2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(b)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h=surv2dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(c)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit2dat[1,1]+ fit2dat[2,1]-y.lim[1],1, fit2dat[1,1]-fit2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, fit2dat[1,2:7]+ fit2dat[2,2:7]-y.lim[1],2:7, fit2dat[1,2:7]-fit2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,fit2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, fit2dat[1,8:13]+ fit2dat[2,8:13]-y.lim[1],(2:7)+0.1, fit2dat[1,8:13]-fit2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(d)",side=3, line=0, adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age1dat[1,1]+ age1dat[2,1]-y.lim[1],1, age1dat[1,1]-age1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, age1dat[1,2:7]+ age1dat[2,2:7]-y.lim[1],2:7, age1dat[1,2:7]-age1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, age1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, age1dat[1,8:13]+ age1dat[2,8:13]-y.lim[1],(2:7)+0.1, age1dat[1,8:13]-age1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(e)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size1dat[1,1]+ size1dat[2,1]-y.lim[1],1, size1dat[1,1]-size1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size1dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,size1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, size1dat[1,2:7]+ size1dat[2,2:7]-y.lim[1],2:7, size1dat[1,2:7]-size1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,size1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, size1dat[1,8:13]+ size1dat[2,8:13]-y.lim[1],(2:7)+0.1, size1dat[1,8:13]-size1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(f)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= surv1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(g)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit1dat[1,1]+ fit1dat[2,1]-y.lim[1],1, fit1dat[1,1]-fit1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, fit1dat[1,2:7]+ fit1dat[2,2:7]-y.lim[1],2:7, fit1dat[1,2:7]-fit1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,fit1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, fit1dat[1,8:13]+ fit1dat[2,8:13]-y.lim[1],(2:7)+0.1, fit1dat[1,8:13]-fit1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(h)",side=3, line=0, adj=use.adj,cex=1)#
+	dev.off()#
+}
+baseline_simno
+parno
+head(meandat)
+checkpars=1:3
+EFFECTS OF PRIOR AND EXPERIENCES ON FITNESS#
+#
+allfit <- c()#
+#
+# population means: #
+res = "pop"#
+mort = 1#
+#
+# baseline simulations & manipulate priors#
+pfood = "0.0" # numeric not factor#
+age = 0#
+#
+for(prior in c(0.1,0.5,0.9)) #
+{#
+	for (parno in checkpars) #
+	{#
+		thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+		thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+		thisdat$fit[thisdat$state==0] <- 0#
+		n<-length(thisdat$fit[thisdat$env==0])#
+		allfit_i <- c(parno,prior,0,age,#
+			mean(thisdat$fit[thisdat$env==0]),#
+			mean(thisdat$fit[thisdat$env==1]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+			sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+			sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			n)#
+		allfit <- rbind(allfit, allfit_i)#
+	}#
+}#
+#
+# manipulate experiences at stages of development#
+prior = 0.5#
+for(parno in checkpars)#
+{#
+	for(pfood in c(0.1,0.9))#
+	{#
+		for(age in seq(0,50,10)) #
+		{#
+			thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+#
+			thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+			thisdat$fit[thisdat$state==0] <- 0#
+			n<-length(thisdat$fit[thisdat$env==0])#
+			allfit_i <- c(parno,prior, pfood,age,#
+				mean(thisdat$fit[thisdat$env==0]),#
+				mean(thisdat$fit[thisdat$env==1]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+				sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+				sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				n)#
+			allfit <- rbind(allfit, allfit_i)#
+		}#
+	}#
+}#
+allfit = data.frame(allfit)#
+#
+colnames(allfit) = c("parno","prior","pfood","age","fit1","fit2","surv1","surv2","size1","size2","age1","age2","sdfit1","sdfit2","sdsize1","sdsize2","sdage1","sdage2","n")#
+#
+allfit$propsurv1 = allfit$surv1/allfit$n#
+allfit$propsurv2 = allfit$surv2/allfit$n#
+# add unique id for each simulation type#
+allfit$simtype = paste(allfit$parno, allfit$prior, allfit$pfood, allfit$age, sep="-")#
+allfit$simno = as.numeric(as.factor(allfit$simtype))#
+#
+meandat <- allfit  # because of old code#
+#
+ylim.fit <- c(0,0.25)#
+ylim.surv <- c(0,0.25)#
+ylim.size <- c(25,55)#
+ylim.age <- c(65,115)#
+#
+# get baselines sims: #
+#
+baseline_simno = meandat$simno[meandat$prior==0.5 & meandat$pfood==0.0 & meandat$age==0]#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")#
+#
+# PLOT ALL#
+#
+# PLOT MATERNAL PRIORS #
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+#
+	fit1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	fit2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	surv1dat <- rbind(meandat$propsurv1[meandat$simno %in% plot_simno])#
+	surv2dat <- rbind(meandat$propsurv2[meandat$simno %in% plot_simno])#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	use.adj = -0.25#
+	tiff(filename=paste("Fig6.MatPriors",parno,".tiff",sep=""), width=850, height=450)#
+	par(mfrow=c(2,4),mai=c(0.7,0.7,0.2,0.3))#
+	y.lim=ylim.age#
+	bpage2 <- barplot(age2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Age at maturity",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	arrows(bpage2, age2dat[1,]+ age2dat[2,]-y.lim[1], bpage2, age2dat[1,]-age2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(a)",side=3, line=0, adj=use.adj,cex=1)			#
+	y.lim=ylim.size#
+	bpsize2 <- barplot(size2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=opt.size.mat[1][1]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize2, size2dat[1,]+ size2dat[2,]-y.lim[1], bpsize2, size2dat[1,]-size2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(b)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.surv#
+	bpsurv2 <- barplot(surv2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(c)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.fit#
+	bpfit2 <- barplot(fit2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=0)#
+	arrows(bpfit2, fit2dat[1,]+ fit2dat[2,]-y.lim[1], bpfit2, fit2dat[1,]-fit2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(d)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.age#
+	bpage1 <- barplot(age1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Age at maturity",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpage1, age1dat[1,]+ age1dat[2,]-y.lim[1], bpage1, age1dat[1,]-age1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(e)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.size#
+	bpsize1 <- barplot(size1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Size at maturity",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize1, size1dat[1,]+ size1dat[2,]-y.lim[1], bpsize1, size1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(f)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.surv#
+	bpsurv1 <- barplot(surv1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Proportion surviving",cex.lab=1.3,cex.names=1.3, col= col.good)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(g)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.fit#
+	bpfit1 <- barplot(fit1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Fitness",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpfit1, fit1dat[1,]+ fit1dat[2,]-y.lim[1], bpfit1, fit1dat[1,]-fit1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(h)",side=3, line=0, adj=use.adj,cex=1)#
+	dev.off()#
+}#
+#
+# PLOT AGE AND SIZE AT MAT and SURV AND FITNESS separately#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")#
+tiff(filename="Fig5.MatPriorsAgeSizeMat.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	use.adj = -0.25#
+	y.lim=ylim.age#
+	counter=counter+1#
+	bpage2 <- barplot(age2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	arrows(bpage2, age2dat[1,]+ age2dat[2,]-y.lim[1], bpage2, age2dat[1,]-age2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpage1 <- barplot(age1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpage1, age1dat[1,]+ age1dat[2,]-y.lim[1], bpage1, age1dat[1,]-age1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	use.adj = -0.25#
+	y.lim=ylim.size#
+#
+	counter=counter+1	#
+	bpsize2 <- barplot(size2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize2, size2dat[1,]+ size2dat[2,]-y.lim[1], bpsize2, size2dat[1,]-size2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpsize1 <- barplot(size1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize1, size1dat[1,]+ size1dat[2,]-y.lim[1], bpsize1, size1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Size at maturity",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+# for supp material - surv and fitness#
+tiff(filename="FigS5.MatPriorsSurvFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$propsurv1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$propsurv2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.surv#
+	counter=counter+1#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	y.lim=ylim.fit#
+#
+	counter=counter+1	#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	arrows(bpplot2, plot2dat[1,]+ plot2dat[2,]-y.lim[1], bpplot2, plot2dat[1,]-plot2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	arrows(bpplot1, plot1dat[1,]+ size1dat[2,]-y.lim[1], bpplot1, plot1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Survival",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+plot.col=c("grey50","grey75","grey25")#
+# Plot poor/rich conditions = PLOT ALL#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	fit1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	fit2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	surv1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	surv2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	use.adj = -0.2#
+	tiff(filename=paste("Fig7.Conditions",parno,".tiff",sep=""), width=850, height=450)#
+	par(mfrow=c(2,4),mai=c(0.7,0.7,0.2,0.3))#
+	## LOW-RESOURCE ENVIRONMENT#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age2dat[1,1]+ age2dat[2,1]-y.lim[1],1, age2dat[1,1]-age2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, age2dat[1,2:7]+ age2dat[2,2:7]-y.lim[1],2:7, age2dat[1,2:7]-age2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, age2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, age2dat[1,8:13]+ age2dat[2,8:13]-y.lim[1],(2:7)+0.1, age2dat[1,8:13]-age2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(a)",side=3, line=0, adj=use.adj,cex=1)#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size2dat[1,1]+ size2dat[2,1]-y.lim[1],1, size2dat[1,1]-size2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+	# poor conditions#
+	points(2:7,size2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, size2dat[1,2:7]+ size2dat[2,2:7]-y.lim[1],2:7, size2dat[1,2:7]-size2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,size2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, size2dat[1,8:13]+ size2dat[2,8:13]-y.lim[1],(2:7)+0.1, size2dat[1,8:13]-size2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(b)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h=surv2dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(c)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit2dat[1,1]+ fit2dat[2,1]-y.lim[1],1, fit2dat[1,1]-fit2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, fit2dat[1,2:7]+ fit2dat[2,2:7]-y.lim[1],2:7, fit2dat[1,2:7]-fit2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,fit2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, fit2dat[1,8:13]+ fit2dat[2,8:13]-y.lim[1],(2:7)+0.1, fit2dat[1,8:13]-fit2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(d)",side=3, line=0, adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age1dat[1,1]+ age1dat[2,1]-y.lim[1],1, age1dat[1,1]-age1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, age1dat[1,2:7]+ age1dat[2,2:7]-y.lim[1],2:7, age1dat[1,2:7]-age1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, age1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, age1dat[1,8:13]+ age1dat[2,8:13]-y.lim[1],(2:7)+0.1, age1dat[1,8:13]-age1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(e)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size1dat[1,1]+ size1dat[2,1]-y.lim[1],1, size1dat[1,1]-size1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size1dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,size1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, size1dat[1,2:7]+ size1dat[2,2:7]-y.lim[1],2:7, size1dat[1,2:7]-size1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,size1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, size1dat[1,8:13]+ size1dat[2,8:13]-y.lim[1],(2:7)+0.1, size1dat[1,8:13]-size1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(f)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= surv1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(g)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit1dat[1,1]+ fit1dat[2,1]-y.lim[1],1, fit1dat[1,1]-fit1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, fit1dat[1,2:7]+ fit1dat[2,2:7]-y.lim[1],2:7, fit1dat[1,2:7]-fit1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,fit1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, fit1dat[1,8:13]+ fit1dat[2,8:13]-y.lim[1],(2:7)+0.1, fit1dat[1,8:13]-fit1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(h)",side=3, line=0, adj=use.adj,cex=1)#
+	dev.off()#
+}#
+# Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+# for supp material - size and surv#
+tiff(filename="FigS6.ExperiencesSizeSurv.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.size#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	plot2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot2dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot1dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Size at maturity",side=2,outer=T,adj=0.85)#
+mtext("Survival",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+head(meandat)
+manipulate experiences at stages of development#
+prior = 0.5#
+for(parno in checkpars)#
+{#
+	for(pfood in c(0.1,0.9))#
+	{#
+		for(age in seq(0,50,10)) #
+		{#
+			thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+#
+			thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+			thisdat$fit[thisdat$state==0] <- 0#
+			n<-length(thisdat$fit[thisdat$env==0])#
+			allfit_i <- c(parno,prior, pfood,age,#
+				mean(thisdat$fit[thisdat$env==0]),#
+				mean(thisdat$fit[thisdat$env==1]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+				sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+				sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				n)#
+			allfit <- rbind(allfit, allfit_i)#
+		}#
+	}#
+}#
+allfit = data.frame(allfit)#
+#
+colnames(allfit) = c("parno","prior","pfood","age","fit1","fit2","surv1","surv2","size1","size2","age1","age2","sdfit1","sdfit2","sdsize1","sdsize2","sdage1","sdage2","n")#
+#
+allfit$propsurv1 = allfit$surv1/allfit$n#
+allfit$propsurv2 = allfit$surv2/allfit$n#
+# add unique id for each simulation type#
+allfit$simtype = paste(allfit$parno, allfit$prior, allfit$pfood, allfit$age, sep="-")#
+allfit$simno = as.numeric(as.factor(allfit$simtype))#
+#
+meandat <- allfit  # because of old code
+parno
+setwd("/Users/sinead/Documents/work/modelling/2013-04-PAR/PAR_growth2/sizedep_pred/output_140703/") #
+#
+# read in data#
+pars = list()#
+fitList = list()#
+optactList = list()#
+infoList = list()#
+#
+for(parno in 1:3) {#
+	pars[[parno]] <- as.numeric(read.table(file=paste("Params",parno,".txt",sep="")))#
+	fitList[[parno]] <- read.table(paste("FitnessValue",parno,".txt",sep=""))#
+	optactList[[parno]] <- read.table(paste("Decision",parno,".txt",sep="")); #
+	infoList[[parno]] <- read.table(paste("InfoVal",parno,".txt",sep=""))#
+	}#
+checkpars = 1:3
+for(res in c("pop","ind"))#
+{#
+	for(mort in c(0,1))#
+	{#
+		# baseline simulations & manipulate priors#
+		pfood = "0.0"#
+		age = 0#
+		for(prior in c(0.5,0.1,0.9)) #
+		{#
+			for (parno in checkpars) #
+			{#
+				assign(paste("simdat","pop",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputAll",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+				assign(paste("simdat","ind",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputInd",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+			}#
+		}#
+		# manipulate experiences at stages of development#
+		prior = 0.5#
+		for(parno in checkpars)#
+		{#
+			for(pfood in c(0.1,0.9))#
+			{#
+				for(age in seq(0,50,10)) #
+				{#
+					assign(paste("simdat","pop",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputAll",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+					assign(paste("simdat","ind",parno,mort,prior,pfood,age,sep="_"),read.table(file=paste("SimOutputInd",parno,mort,prior,pfood,age,"txt",sep="."),header=TRUE))#
+				}#
+			}#
+		}#
+	}#
+}#
+## FOR RESULTS WRITE-UP, GET AVERAGE AGE OF MATURATION AND PROPORTION OF INDVIDIUALS MATURING AT 'CORRECT' SIZE  #
+for(parno in checkpars)#
+{#
+	matdat <- get(paste("simdat","pop",parno,1,0.5,"0.0",0,sep="_")) #
+	matdat <- matdat[matdat$state==2,]#
+	# get proportion that matured at mat size 34 or 49 (optimal sizes for parno1) #
+	print(length(matdat[matdat$mass %in% c(min(matdat$mass),max(matdat$mass)),1])/length(matdat[,1]))#
+}
+EFFECTS OF PRIOR AND EXPERIENCES ON FITNESS#
+#
+allfit <- c()#
+#
+# population means: #
+res = "pop"#
+mort = 1#
+#
+# baseline simulations & manipulate priors#
+pfood = "0.0" # numeric not factor#
+age = 0#
+#
+for(prior in c(0.1,0.5,0.9)) #
+{#
+	for (parno in checkpars) #
+	{#
+		thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+		thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+		thisdat$fit[thisdat$state==0] <- 0#
+		n<-length(thisdat$fit[thisdat$env==0])#
+		allfit_i <- c(parno,prior,0,age,#
+			mean(thisdat$fit[thisdat$env==0]),#
+			mean(thisdat$fit[thisdat$env==1]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+			length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+			mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+			sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+			sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+			sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+			n)#
+		allfit <- rbind(allfit, allfit_i)#
+	}#
+}#
+#
+# manipulate experiences at stages of development#
+prior = 0.5#
+for(parno in checkpars)#
+{#
+	for(pfood in c(0.1,0.9))#
+	{#
+		for(age in seq(0,50,10)) #
+		{#
+			thisdat = get(paste("simdat",res,parno,mort,prior,pfood,age,sep="_"))#
+#
+			thisdat$fit <- RV_mat(thisdat$mass, thisdat$env, parno=parno)#
+			thisdat$fit[thisdat$state==0] <- 0#
+			n<-length(thisdat$fit[thisdat$env==0])#
+			allfit_i <- c(parno,prior, pfood,age,#
+				mean(thisdat$fit[thisdat$env==0]),#
+				mean(thisdat$fit[thisdat$env==1]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==0]),#
+				length(thisdat$state[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$mass[thisdat$state==2&thisdat$env==1]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==0]),#
+				mean(thisdat$age[thisdat$state==2&thisdat$env==1]),#
+				sd(thisdat$fit[thisdat$env==0])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==0])),#
+				sd(thisdat$fit[thisdat$env==1])/sqrt(length(thisdat$state[thisdat$state==2&thisdat$env==1])),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$mass[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==0])/sqrt(n),#
+				sd(thisdat$age[thisdat$state==2&thisdat$env==1])/sqrt(n),#
+				n)#
+			allfit <- rbind(allfit, allfit_i)#
+		}#
+	}#
+}#
+allfit = data.frame(allfit)#
+#
+colnames(allfit) = c("parno","prior","pfood","age","fit1","fit2","surv1","surv2","size1","size2","age1","age2","sdfit1","sdfit2","sdsize1","sdsize2","sdage1","sdage2","n")#
+#
+allfit$propsurv1 = allfit$surv1/allfit$n#
+allfit$propsurv2 = allfit$surv2/allfit$n#
+# add unique id for each simulation type#
+allfit$simtype = paste(allfit$parno, allfit$prior, allfit$pfood, allfit$age, sep="-")#
+allfit$simno = as.numeric(as.factor(allfit$simtype))#
+#
+meandat <- allfit  # because of old code#
+#
+ylim.fit <- c(0,0.25)#
+ylim.surv <- c(0,0.25)#
+ylim.size <- c(25,55)#
+ylim.age <- c(65,115)#
+#
+# get baselines sims: #
+#
+baseline_simno = meandat$simno[meandat$prior==0.5 & meandat$pfood==0.0 & meandat$age==0]#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")#
+#
+# PLOT ALL#
+#
+# PLOT MATERNAL PRIORS #
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+#
+	fit1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	fit2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	surv1dat <- rbind(meandat$propsurv1[meandat$simno %in% plot_simno])#
+	surv2dat <- rbind(meandat$propsurv2[meandat$simno %in% plot_simno])#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	use.adj = -0.25#
+	tiff(filename=paste("Fig6.MatPriors",parno,".tiff",sep=""), width=850, height=450)#
+	par(mfrow=c(2,4),mai=c(0.7,0.7,0.2,0.3))#
+	y.lim=ylim.age#
+	bpage2 <- barplot(age2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Age at maturity",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	arrows(bpage2, age2dat[1,]+ age2dat[2,]-y.lim[1], bpage2, age2dat[1,]-age2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(a)",side=3, line=0, adj=use.adj,cex=1)			#
+	y.lim=ylim.size#
+	bpsize2 <- barplot(size2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=opt.size.mat[1][1]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize2, size2dat[1,]+ size2dat[2,]-y.lim[1], bpsize2, size2dat[1,]-size2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(b)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.surv#
+	bpsurv2 <- barplot(surv2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(c)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.fit#
+	bpfit2 <- barplot(fit2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=0)#
+	arrows(bpfit2, fit2dat[1,]+ fit2dat[2,]-y.lim[1], bpfit2, fit2dat[1,]-fit2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(d)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.age#
+	bpage1 <- barplot(age1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Age at maturity",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpage1, age1dat[1,]+ age1dat[2,]-y.lim[1], bpage1, age1dat[1,]-age1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(e)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.size#
+	bpsize1 <- barplot(size1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Size at maturity",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize1, size1dat[1,]+ size1dat[2,]-y.lim[1], bpsize1, size1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(f)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.surv#
+	bpsurv1 <- barplot(surv1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Proportion surviving",cex.lab=1.3,cex.names=1.3, col= col.good)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(g)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.fit#
+	bpfit1 <- barplot(fit1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Fitness",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpfit1, fit1dat[1,]+ fit1dat[2,]-y.lim[1], bpfit1, fit1dat[1,]-fit1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(h)",side=3, line=0, adj=use.adj,cex=1)#
+	dev.off()#
+}#
+#
+# PLOT AGE AND SIZE AT MAT and SURV AND FITNESS separately#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")#
+tiff(filename="Fig5.MatPriorsAgeSizeMat.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	use.adj = -0.25#
+	y.lim=ylim.age#
+	counter=counter+1#
+	bpage2 <- barplot(age2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	arrows(bpage2, age2dat[1,]+ age2dat[2,]-y.lim[1], bpage2, age2dat[1,]-age2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpage1 <- barplot(age1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpage1, age1dat[1,]+ age1dat[2,]-y.lim[1], bpage1, age1dat[1,]-age1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	use.adj = -0.25#
+	y.lim=ylim.size#
+#
+	counter=counter+1	#
+	bpsize2 <- barplot(size2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize2, size2dat[1,]+ size2dat[2,]-y.lim[1], bpsize2, size2dat[1,]-size2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpsize1 <- barplot(size1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize1, size1dat[1,]+ size1dat[2,]-y.lim[1], bpsize1, size1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Size at maturity",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+# for supp material - surv and fitness#
+tiff(filename="FigS5.MatPriorsSurvFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$propsurv1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$propsurv2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.surv#
+	counter=counter+1#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	y.lim=ylim.fit#
+#
+	counter=counter+1	#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	arrows(bpplot2, plot2dat[1,]+ plot2dat[2,]-y.lim[1], bpplot2, plot2dat[1,]-plot2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	arrows(bpplot1, plot1dat[1,]+ size1dat[2,]-y.lim[1], bpplot1, plot1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Survival",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+plot.col=c("grey50","grey75","grey25")#
+# Plot poor/rich conditions = PLOT ALL#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	fit1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	fit2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	surv1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	surv2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	use.adj = -0.2#
+	tiff(filename=paste("Fig7.Conditions",parno,".tiff",sep=""), width=850, height=450)#
+	par(mfrow=c(2,4),mai=c(0.7,0.7,0.2,0.3))#
+	## LOW-RESOURCE ENVIRONMENT#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age2dat[1,1]+ age2dat[2,1]-y.lim[1],1, age2dat[1,1]-age2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, age2dat[1,2:7]+ age2dat[2,2:7]-y.lim[1],2:7, age2dat[1,2:7]-age2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, age2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, age2dat[1,8:13]+ age2dat[2,8:13]-y.lim[1],(2:7)+0.1, age2dat[1,8:13]-age2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(a)",side=3, line=0, adj=use.adj,cex=1)#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size2dat[1,1]+ size2dat[2,1]-y.lim[1],1, size2dat[1,1]-size2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+	# poor conditions#
+	points(2:7,size2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, size2dat[1,2:7]+ size2dat[2,2:7]-y.lim[1],2:7, size2dat[1,2:7]-size2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,size2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, size2dat[1,8:13]+ size2dat[2,8:13]-y.lim[1],(2:7)+0.1, size2dat[1,8:13]-size2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(b)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h=surv2dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(c)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit2dat[1,1]+ fit2dat[2,1]-y.lim[1],1, fit2dat[1,1]-fit2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, fit2dat[1,2:7]+ fit2dat[2,2:7]-y.lim[1],2:7, fit2dat[1,2:7]-fit2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,fit2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, fit2dat[1,8:13]+ fit2dat[2,8:13]-y.lim[1],(2:7)+0.1, fit2dat[1,8:13]-fit2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(d)",side=3, line=0, adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age1dat[1,1]+ age1dat[2,1]-y.lim[1],1, age1dat[1,1]-age1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, age1dat[1,2:7]+ age1dat[2,2:7]-y.lim[1],2:7, age1dat[1,2:7]-age1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, age1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, age1dat[1,8:13]+ age1dat[2,8:13]-y.lim[1],(2:7)+0.1, age1dat[1,8:13]-age1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(e)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size1dat[1,1]+ size1dat[2,1]-y.lim[1],1, size1dat[1,1]-size1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size1dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,size1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, size1dat[1,2:7]+ size1dat[2,2:7]-y.lim[1],2:7, size1dat[1,2:7]-size1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,size1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, size1dat[1,8:13]+ size1dat[2,8:13]-y.lim[1],(2:7)+0.1, size1dat[1,8:13]-size1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(f)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= surv1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(g)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit1dat[1,1]+ fit1dat[2,1]-y.lim[1],1, fit1dat[1,1]-fit1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, fit1dat[1,2:7]+ fit1dat[2,2:7]-y.lim[1],2:7, fit1dat[1,2:7]-fit1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,fit1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, fit1dat[1,8:13]+ fit1dat[2,8:13]-y.lim[1],(2:7)+0.1, fit1dat[1,8:13]-fit1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(h)",side=3, line=0, adj=use.adj,cex=1)#
+	dev.off()#
+}#
+# Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+# for supp material - size and surv#
+tiff(filename="FigS6.ExperiencesSizeSurv.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.size#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	plot2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot2dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot1dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Size at maturity",side=2,outer=T,adj=0.85)#
+mtext("Survival",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in 2:3)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in 2:3)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
+PLOT ALL#
+#
+checkpars=2:3#
+use.adj=-0.3#
+#
+# PLOT MATERNAL PRIORS #
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+#
+	fit1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	fit2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	surv1dat <- rbind(meandat$propsurv1[meandat$simno %in% plot_simno])#
+	surv2dat <- rbind(meandat$propsurv2[meandat$simno %in% plot_simno])#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	tiff(filename=paste("Fig6.MatPriors",parno,".tiff",sep=""), width=850, height=450)#
+	par(mfrow=c(2,4),mai=c(0.7,0.7,0.2,0.3))#
+	y.lim=ylim.age#
+	bpage2 <- barplot(age2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Age at maturity",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	arrows(bpage2, age2dat[1,]+ age2dat[2,]-y.lim[1], bpage2, age2dat[1,]-age2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(a)",side=3, line=0, adj=use.adj,cex=1)			#
+	y.lim=ylim.size#
+	bpsize2 <- barplot(size2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=opt.size.mat[1][1]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize2, size2dat[1,]+ size2dat[2,]-y.lim[1], bpsize2, size2dat[1,]-size2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(b)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.surv#
+	bpsurv2 <- barplot(surv2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(c)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.fit#
+	bpfit2 <- barplot(fit2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3,cex.names=1.3, col= col.bad)#
+	abline(h=0)#
+	arrows(bpfit2, fit2dat[1,]+ fit2dat[2,]-y.lim[1], bpfit2, fit2dat[1,]-fit2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(d)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.age#
+	bpage1 <- barplot(age1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Age at maturity",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpage1, age1dat[1,]+ age1dat[2,]-y.lim[1], bpage1, age1dat[1,]-age1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(e)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.size#
+	bpsize1 <- barplot(size1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Size at maturity",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize1, size1dat[1,]+ size1dat[2,]-y.lim[1], bpsize1, size1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext("(f)",side=3, line=0, adj=use.adj,cex=1)#
+	y.lim=ylim.surv#
+	bpsurv1 <- barplot(surv1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Proportion surviving",cex.lab=1.3,cex.names=1.3, col= col.good)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(g)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	y.lim=ylim.fit#
+	bpfit1 <- barplot(fit1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab=expression(Starting~belief~italic(P)),ylab="Fitness",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpfit1, fit1dat[1,]+ fit1dat[2,]-y.lim[1], bpfit1, fit1dat[1,]-fit1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext("(h)",side=3, line=0, adj=use.adj,cex=1)#
+	dev.off()#
+}#
+#
+# PLOT AGE AND SIZE AT MAT and SURV AND FITNESS separately#
+#
+col.bad = c("grey70","grey80","grey90") #c("lightskyblue","grey60","royalblue")#
+col.good = c("grey50","grey40","grey30") #c("sienna3","grey60","lightsalmon")#
+tiff(filename="Fig5.MatPriorsAgeSizeMat.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	y.lim=ylim.age#
+	counter=counter+1#
+	bpage2 <- barplot(age2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	arrows(bpage2, age2dat[1,]+ age2dat[2,]-y.lim[1], bpage2, age2dat[1,]-age2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpage1 <- barplot(age1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	arrows(bpage1, age1dat[1,]+ age1dat[2,]-y.lim[1], bpage1, age1dat[1,]-age1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	y.lim=ylim.size#
+#
+	counter=counter+1	#
+	bpsize2 <- barplot(size2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize2, size2dat[1,]+ size2dat[2,]-y.lim[1], bpsize2, size2dat[1,]-size2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpsize1 <- barplot(size1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=2)#
+	abline(h=0)#
+	arrows(bpsize1, size1dat[1,]+ size1dat[2,]-y.lim[1], bpsize1, size1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Size at maturity",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+# for supp material - surv and fitness#
+tiff(filename="FigS5.MatPriorsSurvFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$propsurv1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$propsurv2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.surv#
+	counter=counter+1#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	abline(h=0)#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2], 0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+#
+}		#
+for(parno in checkpars)#
+{#
+	plot_simno <- meandat$simno[meandat$parno==parno & meandat$age==0 & meandat$pfood==0]#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	y.lim=ylim.fit#
+#
+	counter=counter+1	#
+	bpplot2 <- barplot(plot2dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.bad)#
+	arrows(bpplot2, plot2dat[1,]+ plot2dat[2,]-y.lim[1], bpplot2, plot2dat[1,]-plot2dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	counter=counter+1	#
+	bpplot1 <- barplot(plot1dat[1,]-y.lim[1],names.arg=meandat$prior[meandat$simno %in% plot_simno],ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3,cex.names=1.3, col=col.good)#
+	arrows(bpplot1, plot1dat[1,]+ size1dat[2,]-y.lim[1], bpplot1, plot1dat[1,]-size1dat[2,]-y.lim[1],#
+	       length = 0.05, # width of the arrowhead#
+	       angle = 90, # angle of the arrowhead#
+	       code = 3 # arrowhead in both ends#
+	       )#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}		#
+#
+# add outer margin text#
+mtext(expression(Starting~belief~italic(P)),side=1,outer=T,adj=0.5)#
+mtext("Survival",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+plot.col=c("grey50","grey75","grey25")#
+# Plot poor/rich conditions = PLOT ALL#
+#
+for(parno in checkpars)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	optact <- optactList[[parno]]#
+	opt.size.mat <- c(min(which(is.na(optact[,1]))),min(which(is.na(optact[,501]))))#
+	fit1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	fit2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+	surv1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	surv2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+	size1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	size2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+	age1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	age2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+	tiff(filename=paste("Fig7.Conditions",parno,".tiff",sep=""), width=850, height=450)#
+	par(mfrow=c(2,4),mai=c(0.7,0.7,0.2,0.3))#
+	## LOW-RESOURCE ENVIRONMENT#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age2dat[1,1]+ age2dat[2,1]-y.lim[1],1, age2dat[1,1]-age2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, age2dat[1,2:7]+ age2dat[2,2:7]-y.lim[1],2:7, age2dat[1,2:7]-age2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, age2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, age2dat[1,8:13]+ age2dat[2,8:13]-y.lim[1],(2:7)+0.1, age2dat[1,8:13]-age2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(a)",side=3, line=0, adj=use.adj,cex=1)#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[1]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size2dat[1,1]+ size2dat[2,1]-y.lim[1],1, size2dat[1,1]-size2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+	# poor conditions#
+	points(2:7,size2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, size2dat[1,2:7]+ size2dat[2,2:7]-y.lim[1],2:7, size2dat[1,2:7]-size2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,size2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, size2dat[1,8:13]+ size2dat[2,8:13]-y.lim[1],(2:7)+0.1, size2dat[1,8:13]-size2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(b)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h=surv2dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(c)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit2dat[1,1]+ fit2dat[2,1]-y.lim[1],1, fit2dat[1,1]-fit2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit2dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5)#
+	arrows(2:7, fit2dat[1,2:7]+ fit2dat[2,2:7]-y.lim[1],2:7, fit2dat[1,2:7]-fit2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1,fit2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5)#
+	arrows((2:7)+0.1, fit2dat[1,8:13]+ fit2dat[2,8:13]-y.lim[1],(2:7)+0.1, fit2dat[1,8:13]-fit2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(d)",side=3, line=0, adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+#
+	## age#
+	y.lim=ylim.age#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Age at maturity",cex.lab=1.3)#
+	# baseline#
+	points(1,age1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, age1dat[1,1]+ age1dat[2,1]-y.lim[1],1, age1dat[1,1]-age1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=age1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, age1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, age1dat[1,2:7]+ age1dat[2,2:7]-y.lim[1],2:7, age1dat[1,2:7]-age1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, age1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, age1dat[1,8:13]+ age1dat[2,8:13]-y.lim[1],(2:7)+0.1, age1dat[1,8:13]-age1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(e)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## size#
+	y.lim=ylim.size#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Size at maturity",cex.lab=1.3)#
+	abline(h=opt.size.mat[2]-y.lim[1],lty=1,col=plot.col[1])#
+	# baseline#
+	points(1,size1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, size1dat[1,1]+ size1dat[2,1]-y.lim[1],1, size1dat[1,1]-size1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h=size1dat[1,1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,size1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, size1dat[1,2:7]+ size1dat[2,2:7]-y.lim[1],2:7, size1dat[1,2:7]-size1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,size1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, size1dat[1,8:13]+ size1dat[2,8:13]-y.lim[1],(2:7)+0.1, size1dat[1,8:13]-size1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(f)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## survival#
+	y.lim=ylim.surv#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Proportion surviving",cex.lab=1.3)#
+	# baseline#
+	points(1,surv1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= surv1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,surv1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	# rich conditions#
+	points((2:7)+0.1,surv1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(g)",side=3, line=0, adj=use.adj,cex=1)#
+#
+	## fitness#
+	y.lim=ylim.fit#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="Fitness",cex.lab=1.3)#
+	# baseline#
+	points(1,fit1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, fit1dat[1,1]+ fit1dat[2,1]-y.lim[1],1, fit1dat[1,1]-fit1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= fit1dat[1]-y.lim[1],lty=2,col=plot.col[1])#
+#
+	# poor conditions#
+	points(2:7,fit1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5)#
+	arrows(2:7, fit1dat[1,2:7]+ fit1dat[2,2:7]-y.lim[1],2:7, fit1dat[1,2:7]-fit1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1,fit1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5)#
+	arrows((2:7)+0.1, fit1dat[1,8:13]+ fit1dat[2,8:13]-y.lim[1],(2:7)+0.1, fit1dat[1,8:13]-fit1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,lty=1,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext("(h)",side=3, line=0, adj=use.adj,cex=1)#
+	dev.off()#
+}#
+# Plot poor/rich conditions = PLOT AGE + FITNESS#
+plot.col=c("grey50","grey75","grey25")#
+use.lwd=2#
+#
+# for supp material - surv and fitness#
+tiff(filename="Fig6.ExperiencesAgeFit.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in 2:3)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$age1[meandat$simno %in% plot_simno],meandat$sdage1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$age2[meandat$simno %in% plot_simno],meandat$sdage2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.age#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in 2:3)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$fit1[meandat$simno %in% plot_simno],meandat$sdfit1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$fit2[meandat$simno %in% plot_simno],meandat$sdfit2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Age at maturity",side=2,outer=T,adj=0.85)#
+mtext("Fitness",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()#
+# for supp material - size and surv#
+tiff(filename="FigS6.ExperiencesSizeSurv.tiff", width=850, height=450)#
+#
+par(mfrow=c(2,4),mai=c(0.5,0.5,0.2,0.3),oma=c(2,2,3,0.5))#
+counter=0#
+for(parno in 2:3)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- rbind(meandat$size1[meandat$simno %in% plot_simno],meandat$sdsize1[meandat$simno %in% plot_simno])#
+	plot2dat <- rbind(meandat$size2[meandat$simno %in% plot_simno],meandat$sdsize2[meandat$simno %in% plot_simno])#
+#
+	y.lim=ylim.size#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot2dat[1,1]+ plot2dat[2,1]-y.lim[1],1, plot2dat[1,1]-plot2dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot2dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot2dat[1,2:7]+ plot2dat[2,2:7]-y.lim[1],2:7, plot2dat[1,2:7]-plot2dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[2])	#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot2dat[1,8:13]+ plot2dat[2,8:13]-y.lim[1],(2:7)+0.1, plot2dat[1,8:13]-plot2dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[2])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1,1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	arrows(1, plot1dat[1,1]+ plot1dat[2,1]-y.lim[1],1, plot1dat[1,1]-plot1dat[2,1]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[1])#
+	abline(h= plot1dat[1,1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[1,2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows(2:7, plot1dat[1,2:7]+ plot1dat[2,2:7]-y.lim[1],2:7, plot1dat[1,2:7]-plot1dat[2,2:7]-y.lim[1],length=0.0,angle=90,code=3,lty=2,col=plot.col[3])	#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[1,8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	arrows((2:7)+0.1, plot1dat[1,8:13]+ plot1dat[2,8:13]-y.lim[1],(2:7)+0.1, plot1dat[1,8:13]-plot1dat[2,8:13]-y.lim[1],length=0.0,angle=90,code=3,col=plot.col[3])	#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],5),labels=seq(y.lim[1],y.lim[2],5),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+for(parno in 2:3)#
+{#
+	plot_simno <- c(baseline_simno[parno],meandat$simno[meandat$parno==parno & meandat$pfood!=0])#
+	plot1dat <- meandat$propsurv1[meandat$simno %in% plot_simno]#
+	plot2dat <- meandat$propsurv2[meandat$simno %in% plot_simno]#
+#
+	y.lim=ylim.fit#
+	## LOW-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot2dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot2dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot2dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot2dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[2],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+	## HIGH-RESOURCE ENVIRONMENT#
+	counter=counter+1#
+	plot(1:7,1:7,type="n",ylim=y.lim-y.lim[1],axes=F,xlab="",ylab="",cex.lab=1.3)#
+	# baseline#
+	points(1, plot1dat[1]-y.lim[1],pch=17,cex=1.5,col=plot.col[1])#
+	abline(h= plot1dat[1]-y.lim[1],col=plot.col[1],lty=2)#
+	# poor conditions#
+	points(2:7, plot1dat[2:7]-y.lim[1],type="o",pch=1,lty=2,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+	# rich conditions#
+	points((2:7)+0.1, plot1dat[8:13]-y.lim[1],type="o",pch=16,lty=1,col=plot.col[3],cex=1.5,lwd=use.lwd)#
+#
+	axis(2,at=seq(0,y.lim[2]-y.lim[1],0.05),labels=seq(y.lim[1],y.lim[2],0.05),cex.axis=1.3)#
+	axis(1,at=1:7,labels=c("B",seq(0,50,10)),cex.axis=1.3)#
+	mtext(paste("(",letters[counter],")",sep=""),side=3,line=0,adj=use.adj,cex=1)#
+}#
+#
+# add outer margin text#
+mtext("Age at onset of 10-step manipulated foraging experiences",side=1,outer=T,adj=0.5)#
+mtext("Size at maturity",side=2,outer=T,adj=0.85)#
+mtext("Survival",side=2,outer=T,adj=0.2)#
+mtext("High-resource/low-predation",side=3,outer=T,adj=0.2,line=1)#
+mtext("High-resource/high-predation",side=3,outer=T,adj=0.85,line=1)#
+#
+dev.off()
